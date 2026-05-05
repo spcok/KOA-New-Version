@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router';
+import React from 'react';
 import { Dashboard } from '../features/dashboard/Dashboard';
 
-export const Route = createFileRoute('/')({
-  component: Dashboard,
-});
+export default function IndexRoute() {
+  return <Dashboard />;
+}
