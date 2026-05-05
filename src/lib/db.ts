@@ -5,7 +5,7 @@ export const db = new PGlite();
 
 // Helper to initialize schema based on CSV provided if needed, 
 // for now we just verify it's working.
-async function initDb() {
+export async function initDb() {
   try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS timesheets (
