@@ -9,13 +9,15 @@ interface StatWidgetProps {
 
 export function StatWidget({ title, value, icon, trend }: StatWidgetProps) {
   return (
-    <div className="bg-[#111827] border border-slate-800 p-4 rounded-lg flex items-center justify-between">
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
       <div>
-        <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{title}</div>
-        <div className="text-2xl font-light text-white mt-1">{value}</div>
-        {trend && <div className="text-[10px] text-emerald-500 mt-1">{trend}</div>}
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{title}</p>
+        <h3 className="text-3xl font-black text-slate-900">{value}</h3>
+        {trend && <p className="text-xs font-semibold text-emerald-600 mt-2">{trend}</p>}
       </div>
-      <div className="text-slate-600">{icon}</div>
+      <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
+        {icon}
+      </div>
     </div>
   );
 }
