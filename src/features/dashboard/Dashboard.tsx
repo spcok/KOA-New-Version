@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useDashboardStore, CategoryFilter } from '../../store/dashboardStore';
 import { AnimalTable } from './components/AnimalTable';
-import { Heart, Scale, Drumstick, ArrowUpDown, Loader2, ClipboardCheck, CheckCircle, Lock, Unlock, ChevronUp, ChevronDown, Calendar } from 'lucide-react';
+import { Heart, Scale, Drumstick, ArrowUpDown, Loader2, ClipboardCheck, CheckCircle, Lock, Unlock, ChevronUp, ChevronDown, Calendar, AlertTriangle } from 'lucide-react';
 
 export function Dashboard() {
-  const { data, isLoading } = useDashboardData();
+  // Added isError and error variables to trap database failures
+  const { data, isLoading, isError, error } = useDashboardData();
   const [isBentoMinimized, setIsBentoMinimized] = useState(false);
   const [isOrderLocked, setIsOrderLocked] = useState(false);
   
@@ -20,6 +21,22 @@ export function Dashboard() {
   const dateStr = viewingDate.toISOString().split('T')[0];
   const displayDate = viewingDate.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+  // Explicit Error Trap
+  if (isError) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center h-full min-h-[50vh] space-y-4">
+        <div className="p-4 bg-rose-100 text-rose-600 rounded-full">
+          <AlertTriangle size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">Database Query Failed</h2>
+        <p className="text-sm font-medium text-slate-500 max-w-md text-center">
+          {error instanceof Error ? error.message : 'An unknown database error occurred.'}
+        </p>
+      </div>
+    );
+  }
+
+  // Safe Loading Guard
   if (isLoading || !data) {
     return (
       <div className="p-8 flex flex-col items-center justify-center h-full min-h-[50vh] space-y-4">
