@@ -3,21 +3,38 @@ import { useReactTable, getCoreRowModel, getExpandedRowModel, flexRender, create
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 
+// ENTERPRISE FIX: Strict Type Law Enforcement
+interface ProcessedAnimal {
+  id: string;
+  name: string;
+  species: string | null;
+  parent_mob_id?: string | null;
+  isMobParent?: boolean;
+  isVirtualMob?: boolean;
+  subRows?: ProcessedAnimal[];
+  archived?: boolean;
+  archive_reason?: string;
+  todayWeight?: { weight_grams?: number; value?: string } | null;
+  todayFeedLogs?: Array<{ id: string; quantity?: number; food?: string; value?: string; feed_time?: string; created_at: string }>;
+  lastFedStr?: string;
+  location?: string;
+}
+
 interface AnimalTableProps {
-  animals: any[];
+  animals: ProcessedAnimal[];
   activeTab: string;
 }
 
-const columnHelper = createColumnHelper<any>();
+const columnHelper = createColumnHelper<ProcessedAnimal>();
 
 export function AnimalTable({ animals, activeTab }: AnimalTableProps) {
   const [expanded, setExpanded] = useState<ExpandedState>({});
 
   const data = useMemo(() => {
-    const grouped = new Map<string, any[]>();
-    const standalone: any[] = [];
+    const grouped = new Map<string, ProcessedAnimal[]>();
+    const standalone: ProcessedAnimal[] = [];
 
-    animals.forEach((animal: any) => {
+    animals.forEach((animal) => {
       const pid = animal.parent_mob_id;
       const isFakeParent = !pid || pid === '00000000-0000-0000-0000-000000000000';
       if (!isFakeParent) {
@@ -28,7 +45,7 @@ export function AnimalTable({ animals, activeTab }: AnimalTableProps) {
       }
     });
 
-    const finalData: any[] = [];
+    const finalData: ProcessedAnimal[] = [];
 
     standalone.forEach((animal) => {
       const children = grouped.get(animal.id);
@@ -133,7 +150,7 @@ export function AnimalTable({ animals, activeTab }: AnimalTableProps) {
             if (!logs || logs.length === 0) return <span className="text-xs font-bold text-slate-300">-</span>;
             return (
               <div className="flex flex-col gap-1 min-w-[140px]">
-                {logs.map((log: any) => {
+                {logs.map((log) => {
                   const qty = log.quantity && log.quantity !== -1 ? log.quantity + 'x ' : '';
                   const food = log.food && log.food !== 'N/A' ? log.food : '';
                   const text = `${qty}${food}`.trim() || log.value || 'Fed';

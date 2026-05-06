@@ -1,13 +1,13 @@
-import React from 'react';
+import { useAddAnimal } from '../api/mutations';
 
-export function AddAnimalModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-xl">
-        <h2>Add Animal Module (Coming Soon)</h2>
-        <button onClick={onClose} className="mt-4 px-4 py-2 bg-slate-200 rounded">Close</button>
-      </div>
-    </div>
-  );
+export function AddAnimalModal() {
+  const addAnimalMutation = useAddAnimal();
+
+  const onSubmit = async (values: typeof form.state.values) => {
+    // Fire the TanStack mutation
+    await addAnimalMutation.mutateAsync(values);
+    // Add logic here to close the modal or reset the form
+  };
+
+  // ... the rest of your form UI
 }
