@@ -1,10 +1,14 @@
 import { createRouter, createRoute } from '@tanstack/react-router';
-import { Route as rootRoute } from './routes/__root';
+import { rootRoute } from './routes/__root';
 
+// Import Page Components
 import IndexRoute from './routes/index';
 import { LoginForm } from './features/auth/components/LoginForm';
-// IMPORT YOUR NEW ROUTE FILE HERE
-import { Route as dailyLogsRoute } from './routes/daily-logs'; 
+import { Route as dailyLogsRoute } from './routes/daily-logs';
+import { Route as dailyRoundsRoute } from './routes/daily-rounds';
+
+// Import the new dynamic profile route
+import { Route as animalProfileRoute } from './routes/animals/$animalId';
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -18,15 +22,18 @@ const loginRoute = createRoute({
   component: LoginForm,
 });
 
-// ADD dailyLogsRoute TO THIS ARRAY
+// Assemble the Route Tree
 const routeTree = rootRoute.addChildren([
-  indexRoute, 
+  indexRoute,
   loginRoute,
-  dailyLogsRoute 
+  dailyLogsRoute,
+  dailyRoundsRoute,
+  animalProfileRoute, // <-- Added here
 ]);
 
 export const router = createRouter({
   routeTree,
+  defaultPreload: 'intent',
 });
 
 declare module '@tanstack/react-router' {

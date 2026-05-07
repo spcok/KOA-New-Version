@@ -5,7 +5,7 @@ import { initDb } from '../lib/db';
 import { useSyncStore } from '../store/syncStore';
 import { useAuthStore } from '../store/authStore';
 import { ClockInOutButton } from '../features/timesheets/components/ClockInOutButton';
-import { Activity, FileText, Pill, ShieldAlert, CalendarClock, Wrench, HeartPulse, AlertTriangle, Flame } from 'lucide-react';
+import { Activity, FileText, Pill, ShieldAlert, CalendarClock, Wrench, HeartPulse, AlertTriangle, Flame, Loader2, ShieldCheck } from 'lucide-react';
 
 const NotFoundComponent = () => {
   return (
@@ -26,10 +26,8 @@ const NotFoundComponent = () => {
 
 export const Route = createRootRoute({
   beforeLoad: () => {
-    // ==========================================
-    // V3 PHASE 1: Auth Guard Disabled
+    // V3 PHASE 1: Auth Guard Disabled for Offline Dev
     // Uncomment this in Phase 4 when Supabase is connected.
-    // ==========================================
     /*
     const session = useAuthStore.getState().session;
     if (!session && location.pathname !== '/login') {
@@ -41,33 +39,50 @@ export const Route = createRootRoute({
   notFoundComponent: NotFoundComponent,
 });
 
-// Alias required for our manual TanStack Router setup
 export const rootRoute = Route;
 
 function RootComponent() {
   const location = useLocation();
   
-  // Zustand Law: Strict Selectors ONLY
+  // Audit Point: Boot-Guard State
+  const [isDbReady, setIsDbReady] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Zustand Law: Strict Selectors
   const session = useAuthStore(s => s.session);
   const signOut = useAuthStore(s => s.signOut);
-  
   const pullFromCloud = useSyncStore(s => s.pullFromCloud);
   const startBackgroundWorker = useSyncStore(s => s.startBackgroundWorker);
-  
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Database Bootloader
   useEffect(() => {
-    initDb().catch(console.error);
+    async function boot() {
+      await initDb();
+      setIsDbReady(true);
+    }
+    boot();
   }, []);
 
   // Sync Engine (Stubbed for Phase 1)
   useEffect(() => {
-    if (session) {
+    if (session && isDbReady) {
       pullFromCloud().catch(console.error);
       startBackgroundWorker();
     }
-  }, [session, pullFromCloud, startBackgroundWorker]);
+  }, [session, isDbReady, pullFromCloud, startBackgroundWorker]);
+
+  // Boot-Guard Render: Protects TanStack Query from firing before PGlite is alive
+  if (!isDbReady) {
+    return (
+      <div className="h-screen w-full bg-[#171f30] flex flex-col items-center justify-center text-emerald-400 font-mono z-50 fixed inset-0">
+        <Loader2 className="animate-spin mb-4 text-emerald-500" size={48} />
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={20} className="text-emerald-500" />
+          <span className="tracking-widest uppercase text-sm font-bold text-white">Unlocking Clinical Vault...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (location.pathname === '/login') {
     return <Outlet />;
@@ -96,11 +111,9 @@ function RootComponent() {
     </div>
   );
 
-  // Optimized SVG Icons
   const Icons = {
     dashboard: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>,
     logs: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>,
-    generic: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>,
     logistics: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>,
     cog: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>,
     admin: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>,
@@ -121,7 +134,7 @@ function RootComponent() {
             {isSidebarOpen && <div className="px-6 pb-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase transition-opacity duration-300">Collection</div>}
             <div className="px-3 space-y-1">
               <ActiveLink to="/" label="Dashboard" icon={Icons.dashboard} />
-              <ActiveLink to="/animals" label="Animal Roster" icon={Icons.generic} />
+              {/* Note: Animal Roster link successfully removed per instructions */}
             </div>
           </div>
 
