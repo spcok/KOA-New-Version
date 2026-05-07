@@ -6,15 +6,12 @@ import { useForm } from '@tanstack/react-form';
 import { zodValidator } from '@tanstack/zod-form-adapter';
 import { z } from 'zod';
 import { 
-  Loader2, Plus, CheckCircle, Circle, Clock, User as UserIcon, 
+  Loader2, Plus, CheckCircle, Circle, User as UserIcon, 
   X, Save, ClipboardList, Wrench, Stethoscope, MapPin, 
-  AlertTriangle, Edit2, Trash2, Calendar
+  Edit2, Trash2, Calendar
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// ==========================================
-// V3 TYPE LAW ENFORCEMENT
-// ==========================================
 interface Task {
   id: string;
   title: string;
@@ -25,7 +22,7 @@ interface Task {
   location: string | null;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   status: 'PENDING' | 'COMPLETED';
-  assigned_initials?: string | null; // Joined field
+  assigned_initials?: string | null;
 }
 
 interface User {
@@ -34,10 +31,6 @@ interface User {
   email?: string;
 }
 
-// ==========================================
-// V3 ZOD & NULL LAW ENFORCEMENT
-// No magic 'NONE' strings. Empty values route to true NULL.
-// ==========================================
 const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable().optional(),
@@ -50,9 +43,6 @@ const taskSchema = z.object({
 
 type TaskFormValues = z.infer<typeof taskSchema>;
 
-// ==========================================
-// COMPONENT: The Data Entry Modal
-// ==========================================
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -71,7 +61,7 @@ function TaskModal({ isOpen, onClose, users, editTask }: TaskModalProps) {
       
       const params = [
         val.title,
-        val.description || null, // Strict Null routing
+        val.description || null,
         val.assigned_to || null,
         val.due_date || null,
         val.task_type,
@@ -153,7 +143,7 @@ function TaskModal({ isOpen, onClose, users, editTask }: TaskModalProps) {
                 {(field) => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Category</label>
-                    <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+                    <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value as 'GENERAL' | 'MAINTENANCE' | 'MEDICAL' | 'HUSBANDRY')} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500">
                       <option value="GENERAL">General</option>
                       <option value="HUSBANDRY">Husbandry</option>
                       <option value="MEDICAL">Medical</option>
@@ -167,7 +157,7 @@ function TaskModal({ isOpen, onClose, users, editTask }: TaskModalProps) {
                 {(field) => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Priority</label>
-                    <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500">
+                    <select value={field.state.value} onChange={(e) => field.handleChange(e.target.value as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT')} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500">
                       <option value="LOW">Low</option>
                       <option value="MEDIUM">Medium</option>
                       <option value="HIGH">High</option>
@@ -233,9 +223,6 @@ function TaskModal({ isOpen, onClose, users, editTask }: TaskModalProps) {
   );
 }
 
-// ==========================================
-// COMPONENT: The Main List View
-// ==========================================
 export function TasksView() {
   const queryClient = useQueryClient();
   const session = useAuthStore(s => s.session);
@@ -282,7 +269,6 @@ export function TasksView() {
       );
     },
     onMutate: async (t) => {
-      // Optimistic UI updates
       await queryClient.cancelQueries({ queryKey: ['tasks'] });
       queryClient.setQueryData(['tasks', filter], (old: Task[] | undefined) => {
         if (!old) return old;
@@ -291,7 +277,7 @@ export function TasksView() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardData'] }); // Refresh dashboard widgets!
+      queryClient.invalidateQueries({ queryKey: ['dashboardData'] }); 
     }
   });
 
@@ -348,7 +334,7 @@ export function TasksView() {
           {['PENDING', 'COMPLETED', 'ALL'].map(f => (
             <button 
               key={f}
-              onClick={() => setFilter(f as any)}
+              onClick={() => setFilter(f as 'ALL' | 'PENDING' | 'COMPLETED')}
               className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${filter === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}
             >
               {f}
@@ -437,10 +423,6 @@ export function TasksView() {
         </div>
       </div>
 
-      {/* AUDIT R-05: Hydration Law (The React Key Hack)
-        The key={...} forces the TaskModal to unmount and remount when taskToEdit changes,
-        ensuring TanStack Form's defaultValues hydrate properly without using useEffect!
-      */}
       {isModalOpen && (
         <TaskModal 
           key={taskToEdit ? taskToEdit.id : 'new-task'} 

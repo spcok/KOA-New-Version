@@ -11,9 +11,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// ==========================================
-// V3 TYPE LAW ENFORCEMENT
-// ==========================================
 interface FeedingSchedule {
   id: string;
   animal_id: string;
@@ -33,9 +30,6 @@ interface AnimalOption {
   species: string | null;
 }
 
-// ==========================================
-// V3 ZOD & NULL LAW ENFORCEMENT
-// ==========================================
 const scheduleSchema = z.object({
   animal_id: z.string().min(1, "Animal selection is required"),
   food_type: z.string().min(1, "Food type is required"),
@@ -48,9 +42,6 @@ const scheduleSchema = z.object({
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
-// ==========================================
-// COMPONENT: Data Entry Modal
-// ==========================================
 function ScheduleModal({ isOpen, onClose, animals, editSchedule }: { isOpen: boolean, onClose: () => void, animals: AnimalOption[], editSchedule: FeedingSchedule | null }) {
   const queryClient = useQueryClient();
   const session = useAuthStore(s => s.session);
@@ -63,7 +54,7 @@ function ScheduleModal({ isOpen, onClose, animals, editSchedule }: { isOpen: boo
       const params = [
         val.animal_id,
         val.food_type,
-        val.quantity_grams || null, // Null Law Enforcement
+        val.quantity_grams || null,
         val.calci_dust,
         val.notes || null,
         val.interval_days,
@@ -155,7 +146,7 @@ function ScheduleModal({ isOpen, onClose, animals, editSchedule }: { isOpen: boo
                 {(field) => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Amount (Grams)</label>
-                    <input type="number" value={field.state.value || ''} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : null as any)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500" placeholder="e.g. 150" />
+                    <input type="number" value={field.state.value || ''} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value ? Number(e.target.value) : null)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold focus:ring-2 focus:ring-emerald-500" placeholder="e.g. 150" />
                   </div>
                 )}
               </form.Field>
@@ -194,7 +185,7 @@ function ScheduleModal({ isOpen, onClose, animals, editSchedule }: { isOpen: boo
               {(field) => (
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Dietary Notes</label>
-                  <textarea value={field.state.value || ''} onChange={(e) => field.handleChange(e.target.value === '' ? null as any : e.target.value)} className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-emerald-500 min-h-[80px]" placeholder="Specific preparation instructions..." />
+                  <textarea value={field.state.value || ''} onChange={(e) => field.handleChange(e.target.value === '' ? null : e.target.value)} className="w-full px-3 py-2 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-emerald-500 min-h-[80px]" placeholder="Specific preparation instructions..." />
                 </div>
               )}
             </form.Field>
@@ -213,9 +204,6 @@ function ScheduleModal({ isOpen, onClose, animals, editSchedule }: { isOpen: boo
   );
 }
 
-// ==========================================
-// COMPONENT: Main View
-// ==========================================
 export function FeedingScheduleView() {
   const queryClient = useQueryClient();
   const session = useAuthStore(s => s.session);
@@ -249,19 +237,16 @@ export function FeedingScheduleView() {
     }
   });
 
-  // ATOMIC ACTION: Log the feed AND push the schedule forward
   const markFedMutation = useMutation({
     mutationFn: async (schedule: FeedingSchedule) => {
       await db.waitReady;
       
-      // 1. Insert into daily logs
       await db.query(
         `INSERT INTO daily_logs (animal_id, log_type, log_date, notes, weight_grams, created_by, modified_by) 
          VALUES ($1, 'feed', now(), $2, $3, $4, $4)`,
         [schedule.animal_id, `Scheduled feed: ${schedule.food_type}`, schedule.quantity_grams, currentUserId]
       );
 
-      // 2. Increment the schedule date
       await db.query(
         `UPDATE feeding_schedules 
          SET next_feed_date = (DATE($1) + INTERVAL '${schedule.interval_days} days')::DATE, 
@@ -293,7 +278,6 @@ export function FeedingScheduleView() {
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Dietary Operations</h1>
@@ -307,7 +291,6 @@ export function FeedingScheduleView() {
         </button>
       </div>
 
-      {/* Date Controls */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2 text-slate-700 font-black uppercase tracking-widest text-xs ml-2">
           <Calendar size={16} className="text-emerald-500" /> Target Date:
@@ -319,7 +302,6 @@ export function FeedingScheduleView() {
         </div>
       </div>
 
-      {/* Schedule List */}
       <div className="space-y-3">
         {schedules.length === 0 ? (
           <div className="text-center py-16 bg-white border border-slate-200 rounded-2xl border-dashed">
@@ -385,7 +367,6 @@ export function FeedingScheduleView() {
         )}
       </div>
 
-      {/* AUDIT R-05: Hydration Law (The React Key Hack) */}
       {isModalOpen && (
         <ScheduleModal 
           key={scheduleToEdit ? scheduleToEdit.id : 'new-schedule'} 
