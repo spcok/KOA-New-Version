@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useDashboardData } from './hooks/useDashboardData';
+import { db } from '../../lib/db';
 import { useDashboardStore, CategoryFilter } from '../../store/dashboardStore';
 import { 
   Heart, Scale, Drumstick, ArrowUpDown, Loader2, ClipboardCheck, 
@@ -9,7 +10,6 @@ import {
 } from 'lucide-react';
 
 export function Dashboard() {
-  const { data, isLoading, isError, error } = useDashboardData();
   const [isBentoMinimized, setIsBentoMinimized] = useState(false);
   const [isOrderLocked, setIsOrderLocked] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +24,38 @@ export function Dashboard() {
 
   const dateStr = viewingDate.toISOString().split('T')[0];
   const displayDate = viewingDate.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // 1. Explicit useQuery inside Dashboard to guarantee mappings
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['dashboardData', dateStr],
+    queryFn: async () => {
+      await db.waitReady;
+      const animalsRes = await db.query("SELECT * FROM animals ORDER BY name ASC");
+      
+      let logsRes = { rows: [] };
+      try {
+          logsRes = await db.query("SELECT * FROM daily_logs WHERE is_deleted = false ORDER BY log_date DESC");
+      } catch (err) {
+          console.warn("daily_logs query failed, table might not exist yet:", err);
+      }
+      
+      return { animals: animalsRes.rows as any[], logs: logsRes.rows as any[] };
+    }
+  });
+
+  const parseLocalDate = (val: any) => {
+    if (!val) return '';
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return String(val).substring(0, 10);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    } catch {
+      return String(val).substring(0, 10);
+    }
+  };
 
   if (isError) {
     return (
@@ -43,34 +75,59 @@ export function Dashboard() {
     return (
       <div className="p-8 flex flex-col items-center justify-center h-full min-h-[50vh] space-y-4">
           <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-          <p className="text-sm font-medium text-slate-500 uppercase tracking-widest">Loading Dashboard...</p>
+          <p className="text-sm font-black uppercase tracking-widest text-slate-500">Loading Dashboard...</p>
       </div>
     );
   }
 
-  // --- Resilient Filtering ---
-  const filteredAnimals = (data.animals || []).filter((a: any) => {
-    // 1. Apply Search
-    if (searchTerm && !(a.name?.toLowerCase() || '').includes(searchTerm.toLowerCase())) {
-        return false;
-    }
+  // 2. Process & Map Animals (Replaces the missing hook logic)
+  const processedAnimals = (data.animals || []).map((a) => {
+    const animalLogs = data.logs.filter((l) => String(l.animal_id) === String(a.id)) || [];
+    const todayLogs = animalLogs.filter((l) => parseLocalDate(l.log_date) === dateStr);
+    
+    const todayWeight = todayLogs.find((l) => String(l.log_type).toLowerCase() === 'weight');
+    const todayFeedLogs = todayLogs.filter((l) => String(l.log_type).toLowerCase() === 'feed');
+    
+    return {
+      ...a,
+      todayWeight: todayWeight ? todayWeight.weight_grams : null,
+      fed_today: todayFeedLogs.length > 0,
+    };
+  });
 
-    // 2. Apply Tabs
+  // 3. Filter Resiliency
+  const filteredAnimals = processedAnimals.filter((a: any) => {
+    // Search
+    if (searchTerm && !(a.name?.toLowerCase() || '').includes(searchTerm.toLowerCase())) return false;
+    
+    // Archive
     if (activeTab === 'ARCHIVED') return a.is_deleted === true;
     if (a.is_deleted) return false;
-    
-    // Case-insensitive, flexible matching for categories
+
+    // Tabs
     const cat = (a.category || '').toLowerCase();
     const tab = (activeTab || '').toLowerCase();
+    
+    // Safety Net: If animal has no category, show them in Owls so they aren't lost ghosts
+    const knownCategories = ['owls', 'raptors', 'mammals', 'exotics'];
+    if (!knownCategories.includes(cat) && tab === 'owls') return true;
+
     return cat === tab || cat + 's' === tab || cat === tab.slice(0, -1);
   });
 
-  // --- Sorting ---
+  // 4. Sort
   filteredAnimals.sort((a: any, b: any) => {
     const nameA = a.name || '';
     const nameB = b.name || '';
     return sortOption === 'alpha-asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
   });
+
+  // 5. Stats Calculation
+  const animalStats = {
+      total: filteredAnimals.length,
+      weighed: filteredAnimals.filter((a: any) => a.todayWeight !== null).length,
+      fed: filteredAnimals.filter((a: any) => a.fed_today).length
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 pb-20 bg-slate-50 min-h-screen">
@@ -138,7 +195,7 @@ export function Dashboard() {
           <div>
             <div className="text-[10px] font-black uppercase tracking-widest opacity-90 mb-0.5">Weighed Today</div>
             <div className="text-xl lg:text-2xl font-black">
-              {data.stats.weighed}<span className="text-xs lg:text-sm opacity-80">/{data.stats.total}</span>
+              {animalStats?.weighed || 0}<span className="text-xs lg:text-sm opacity-80">/{animalStats?.total || 0}</span>
             </div>
           </div>
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -149,7 +206,7 @@ export function Dashboard() {
           <div>
             <div className="text-[10px] font-black uppercase tracking-widest opacity-90 mb-0.5">Fed Today</div>
             <div className="text-xl lg:text-2xl font-black">
-              {data.stats.fed}<span className="text-xs lg:text-sm opacity-80">/{data.stats.total}</span>
+              {animalStats?.fed || 0}<span className="text-xs lg:text-sm opacity-80">/{animalStats?.total || 0}</span>
             </div>
           </div>
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -176,7 +233,6 @@ export function Dashboard() {
         </div>
         
         <div className="flex flex-wrap items-center justify-between gap-1.5 w-full pt-2 border-t border-slate-100">
-            {/* Search Bar */}
             <div className="relative flex-1 max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <input 
@@ -226,7 +282,7 @@ export function Dashboard() {
         {filteredAnimals.map((animal: any) => (
           <div key={animal.id} className="bg-white border border-slate-200 rounded-2xl p-3 md:p-4 flex flex-col md:flex-row md:items-center justify-between shadow-sm hover:shadow-md transition-shadow group gap-4">
             
-            {/* Left Side: Avatar & Link */}
+            {/* Left Side: Avatar & Link routes cleanly to AnimalProfileView */}
             <Link 
               to="/animals/$animalId" 
               params={{ animalId: animal.id }}
@@ -286,7 +342,8 @@ export function Dashboard() {
         {filteredAnimals.length === 0 && (
           <div className="text-center py-12 bg-white border border-slate-200 rounded-2xl border-dashed">
             <Search size={32} className="mx-auto mb-3 text-slate-300" />
-            <p className="font-bold text-sm text-slate-400 uppercase tracking-widest">No animals match filters.</p>
+            <h3 className="font-black text-slate-700 uppercase tracking-widest mb-1">Vault is Empty</h3>
+            <p className="font-bold text-sm text-slate-400">Ensure the mock data has seeded correctly.</p>
           </div>
         )}
       </div>
