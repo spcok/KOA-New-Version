@@ -7,10 +7,16 @@ import { LoginForm } from './features/auth/components/LoginForm';
 import { Route as dailyLogsRoute } from './routes/daily-logs';
 import { Route as dailyRoundsRoute } from './routes/daily-rounds';
 import { Route as animalProfileRoute } from './routes/animals/$animalId';
-import { Route as tasksRoute } from './routes/tasks';
 
-// 1. Import the Feeding Schedules Route
+// Husbandry Routes
+import { Route as tasksRoute } from './routes/tasks';
 import { Route as feedingSchedulesRoute } from './routes/feeding-schedules';
+
+// Safety & Compliance Routes
+import { Route as maintenanceRoute } from './routes/maintenance';
+import { Route as incidentsRoute } from './routes/incidents';
+import { Route as safetyIncidentsRoute } from './routes/safety-incidents';
+import { Route as fireDrillsRoute } from './routes/fire-drills';
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -24,7 +30,7 @@ const loginRoute = createRoute({
   component: LoginForm,
 });
 
-// 2. Add the Routes to the Children Array
+// Build the Route Tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
@@ -32,7 +38,11 @@ const routeTree = rootRoute.addChildren([
   dailyRoundsRoute,
   animalProfileRoute,
   tasksRoute,
-  feedingSchedulesRoute, // <-- Injected here
+  feedingSchedulesRoute,
+  maintenanceRoute,
+  incidentsRoute,
+  safetyIncidentsRoute,
+  fireDrillsRoute,
 ]);
 
 export const router = createRouter({
