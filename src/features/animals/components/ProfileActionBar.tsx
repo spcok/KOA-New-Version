@@ -4,26 +4,24 @@ import { db } from '../../../lib/db';
 import { useAuthStore } from '../../../store/authStore';
 import { Edit, Trash2, Printer, RotateCcw, Loader2 } from 'lucide-react';
 
-// Using a partial type that matches what the Action Bar actually needs
-interface ActionBarProps {
+// Strict Partial Type to satisfy the Type Law (No 'as any' allowed)
+interface Props {
     animal: {
         id: string;
         is_deleted?: boolean;
         name?: string | null;
+        archived?: boolean; // Included for legacy support compatibility
     };
     onEdit: () => void;
     onSign: () => void;
 }
 
-export function ProfileActionBar({ animal, onEdit, onSign }: ActionBarProps) {
+export function ProfileActionBar({ animal, onEdit, onSign }: Props) {
     const queryClient = useQueryClient();
     const session = useAuthStore(s => s.session);
     const currentUserId = session?.user?.id || '00000000-0000-0000-0000-000000000000';
 
-    // ==========================================
-    // AUDIT POINT: Database Law Enforcement
-    // Replaced supabase.rpc() with strict local db.query()
-    // ==========================================
+    // Obeys Database Law: Strict db.query execution
     const toggleStatusMutation = useMutation({
         mutationFn: async (newStatus: boolean) => {
             await db.waitReady;
@@ -33,7 +31,6 @@ export function ProfileActionBar({ animal, onEdit, onSign }: ActionBarProps) {
             );
         },
         onMutate: async (newStatus) => {
-            // Optimistic UI update for instant feedback
             await queryClient.cancelQueries({ queryKey: ['animal-profile', animal.id] });
             const previousAnimal = queryClient.getQueryData(['animal-profile', animal.id]);
             
@@ -51,15 +48,15 @@ export function ProfileActionBar({ animal, onEdit, onSign }: ActionBarProps) {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-profile', animal.id] });
-            queryClient.invalidateQueries({ queryKey: ['dashboard-data'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboardData'] });
             queryClient.invalidateQueries({ queryKey: ['animals-list'] });
         }
     });
 
-    const isDeleted = animal.is_deleted === true;
+    const isDeleted = animal.is_deleted === true || animal.archived === true;
 
     return (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 mt-4 md:mt-0">
             <button 
                 onClick={onSign} 
                 className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-colors shadow-sm"

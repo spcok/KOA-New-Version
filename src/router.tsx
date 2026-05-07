@@ -6,9 +6,10 @@ import IndexRoute from './routes/index';
 import { LoginForm } from './features/auth/components/LoginForm';
 import { Route as dailyLogsRoute } from './routes/daily-logs';
 import { Route as dailyRoundsRoute } from './routes/daily-rounds';
-
-// Import the new dynamic profile route
 import { Route as animalProfileRoute } from './routes/animals/$animalId';
+
+// 1. Import the new Tasks Route
+import { Route as tasksRoute } from './routes/tasks';
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -22,13 +23,14 @@ const loginRoute = createRoute({
   component: LoginForm,
 });
 
-// Assemble the Route Tree
+// 2. Add the Tasks Route to the Children Array
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   dailyLogsRoute,
   dailyRoundsRoute,
-  animalProfileRoute, // <-- Added here
+  animalProfileRoute,
+  tasksRoute, // <-- Injected here
 ]);
 
 export const router = createRouter({
