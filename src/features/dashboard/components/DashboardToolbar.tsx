@@ -22,8 +22,6 @@ export function DashboardToolbar() {
 
   return (
     <div className="flex flex-col gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm transition-all duration-300">
-      
-      {/* Top Row: Dates & Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 w-full">
         <div className="flex flex-wrap items-center gap-1.5 flex-1 md:flex-none">
           <div className="flex items-center gap-1.5 text-slate-700 font-black uppercase tracking-widest whitespace-nowrap text-[10px] lg:text-xs mr-2">
@@ -63,7 +61,6 @@ export function DashboardToolbar() {
         </div>
       </div>
 
-      {/* Bottom Row: Tabs */}
       <div className="flex overflow-x-auto scrollbar-hide bg-slate-100 p-1 rounded-xl gap-1 mt-1">
         <div className="flex items-center px-2 border-r border-slate-200 mr-1 text-slate-400">
            <SlidersHorizontal size={14} />
