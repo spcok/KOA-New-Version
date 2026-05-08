@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { db } from '../../lib/db';
@@ -9,9 +9,6 @@ import {
   AlertTriangle, Search 
 } from 'lucide-react';
 
-// ==========================================
-// V3 STRICT TYPES (Zero 'as any' allowed)
-// ==========================================
 interface DBAnimal {
   id: string;
   name: string | null;
@@ -42,13 +39,9 @@ interface EnhancedAnimal extends DBAnimal {
   nextFeedTask: { dueDate: string; notes: string } | null;
 }
 
-// ==========================================
-// COMPONENT
-// ==========================================
 export function Dashboard() {
   const navigate = useNavigate();
 
-  // V3 STRICT ZUSTAND SELECTORS (Prevents infinite re-renders)
   const viewingDate = useDashboardStore(s => s.viewingDate);
   const activeTab = useDashboardStore(s => s.categoryFilter);
   const setActiveTab = useDashboardStore(s => s.setCategoryFilter);
@@ -57,32 +50,26 @@ export function Dashboard() {
   const shiftDate = useDashboardStore(s => s.shiftDate);
   const resetToToday = useDashboardStore(s => s.resetToToday);
 
-  // Local UI State (Matches V2)
   const [isBentoMinimized, setIsBentoMinimized] = useState(false);
   const [isOrderLocked, setIsOrderLocked] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const dateStr = viewingDate.toISOString().split('T')[0];
-  const displayDate = viewingDate.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const displayDate = useMemo(() => viewingDate.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), [viewingDate]);
 
-  // ==========================================
-  // V3 OFFLINE DATA ENGINE (Strict 'SELECT *' prevents crashing on missing schema columns)
-  // ==========================================
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['dashboardData', dateStr],
     queryFn: async () => {
       await db.waitReady;
-      
       const animalsRes = await db.query("SELECT * FROM animals ORDER BY name ASC");
       let logsRes = { rows: [] as DBLog[] };
       let schedRes = { rows: [] as DBSchedule[] };
 
       try {
-          // Robust date::text matching prevents timezone shift crashes
           logsRes = await db.query("SELECT animal_id, log_type, log_date, weight_grams FROM daily_logs WHERE log_date::text LIKE $1 || '%' AND is_deleted = false", [dateStr]) as { rows: DBLog[] };
           schedRes = await db.query("SELECT animal_id, next_feed_date, food_type FROM feeding_schedules WHERE is_deleted = false") as { rows: DBSchedule[] };
       } catch (err) {
-          console.warn("Supporting tables missing, defaulting to empty stats.", err);
+          console.warn("Supporting tables missing, defaulting to empty stats.");
       }
       
       return { 
@@ -93,7 +80,62 @@ export function Dashboard() {
     }
   });
 
-  // Display Handlers for Loading / Errors
+  // V3 PERFORMANCE: Memoized heavy array processing. Will NOT re-run on search typing.
+  const processedAnimals = useMemo<EnhancedAnimal[]>(() => {
+    if (!data) return [];
+    return data.animals.map((a) => {
+      const aLogs = data.logs.filter(l => String(l.animal_id) === String(a.id));
+      const todayWeight = aLogs.find(l => String(l.log_type).toLowerCase() === 'weight');
+      const fedToday = aLogs.some(l => String(l.log_type).toLowerCase() === 'feed');
+
+      const aScheds = data.schedules.filter(s => String(s.animal_id) === String(a.id));
+      aScheds.sort((s1, s2) => new Date(s1.next_feed_date).getTime() - new Date(s2.next_feed_date).getTime());
+      const nextSched = aScheds[0] || null;
+
+      return {
+        ...a,
+        name: a.name || 'Unnamed',
+        species: a.species || 'Unknown',
+        category: a.category || 'Other',
+        location: a.location || null,
+        is_deleted: a.is_deleted || false,
+        todayWeight: todayWeight?.weight_grams || null,
+        fed_today: fedToday,
+        nextFeedTask: nextSched ? { dueDate: nextSched.next_feed_date, notes: nextSched.food_type } : null
+      };
+    });
+  }, [data]);
+
+  // V3 PERFORMANCE: Separated filter logic to allow instantaneous search updates
+  const filteredAnimals = useMemo(() => {
+    let result = processedAnimals.filter(a => {
+      if (activeTab === 'ARCHIVED') return a.is_deleted === true;
+      if (a.is_deleted) return false;
+      if (activeTab === 'ALL') return true;
+
+      const cat = a.category.toLowerCase();
+      const tab = activeTab.toLowerCase();
+      return cat === tab || cat + 's' === tab || cat === tab.slice(0, -1);
+    });
+
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      result = result.filter(a => a.name.toLowerCase().includes(lowerSearch));
+    }
+
+    result.sort((a, b) => {
+      return sortOption === 'alpha-asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+    });
+
+    return result;
+  }, [processedAnimals, activeTab, searchTerm, sortOption]);
+
+  const animalStats = useMemo(() => ({
+      total: filteredAnimals.length,
+      weighed: filteredAnimals.filter((a) => a.todayWeight !== null).length,
+      fed: filteredAnimals.filter((a) => a.fed_today).length
+  }), [filteredAnimals]);
+
   if (isError) {
     return (
       <div className="p-12 flex flex-col items-center justify-center h-full min-h-[50vh] space-y-4">
@@ -115,57 +157,9 @@ export function Dashboard() {
     );
   }
 
-  // ==========================================
-  // DATA PROCESSING & FILTERING
-  // ==========================================
-  const processedAnimals: EnhancedAnimal[] = data.animals.map((a) => {
-    const aLogs = data.logs.filter(l => String(l.animal_id) === String(a.id));
-    const todayWeight = aLogs.find(l => String(l.log_type).toLowerCase() === 'weight');
-    const fedToday = aLogs.some(l => String(l.log_type).toLowerCase() === 'feed');
-
-    // Find the next upcoming feed
-    const aScheds = data.schedules.filter(s => String(s.animal_id) === String(a.id));
-    aScheds.sort((s1, s2) => new Date(s1.next_feed_date).getTime() - new Date(s2.next_feed_date).getTime());
-    const nextSched = aScheds[0] || null;
-
-    return {
-      ...a,
-      name: a.name || 'Unnamed',
-      species: a.species || 'Unknown',
-      category: a.category || 'Other',
-      location: a.location || null,
-      is_deleted: a.is_deleted || false,
-      todayWeight: todayWeight?.weight_grams || null,
-      fed_today: fedToday,
-      nextFeedTask: nextSched ? { dueDate: nextSched.next_feed_date, notes: nextSched.food_type } : null
-    };
-  });
-
-  const filteredAnimals = processedAnimals.filter(a => {
-    if (searchTerm && !(a.name.toLowerCase().includes(searchTerm.toLowerCase()))) return false;
-    if (activeTab === 'ARCHIVED') return a.is_deleted === true;
-    if (a.is_deleted) return false;
-    if (activeTab === 'ALL') return true;
-
-    const cat = a.category.toLowerCase();
-    const tab = activeTab.toLowerCase();
-    return cat === tab || cat + 's' === tab || cat === tab.slice(0, -1);
-  });
-
-  filteredAnimals.sort((a, b) => {
-    return sortOption === 'alpha-asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-  });
-
-  const animalStats = {
-      total: filteredAnimals.length,
-      weighed: filteredAnimals.filter((a) => a.todayWeight !== null).length,
-      fed: filteredAnimals.filter((a) => a.fed_today).length
-  };
-
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 pb-20 bg-slate-50 min-h-screen">
       
-      {/* Exact V2 Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Dashboard</h1>
@@ -175,9 +169,9 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Exact V2 Bento Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col transition-all duration-300">
+          {/* V3 PERFORMANCE: Removed 'transition-all duration-300' to stop layout thrashing */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col">
               <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsBentoMinimized(!isBentoMinimized)}>
                   <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg"><ClipboardCheck size={18} /></div>
@@ -197,7 +191,7 @@ export function Dashboard() {
               )}
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col transition-all duration-300">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col">
               <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsBentoMinimized(!isBentoMinimized)}>
                   <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-rose-50 text-rose-600 rounded-lg"><Heart size={18} /></div>
@@ -218,7 +212,6 @@ export function Dashboard() {
           </div>
       </div>
 
-      {/* Exact V2 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
         <div className="bg-[#0fa968] rounded-xl p-4 text-white flex justify-between items-center shadow-sm">
           <div>
@@ -236,17 +229,16 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Exact V2 Toolbar Controls */}
       <div className="flex flex-col gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex flex-wrap items-center justify-center gap-3 w-full">
           <div className="flex items-center gap-1.5 text-slate-700 font-black uppercase tracking-widest whitespace-nowrap text-[10px] lg:text-xs">
             <Calendar size={16} className="text-emerald-600" /> Viewing Date:
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <button onClick={() => shiftDate(-1)} className="px-2 py-1.5 border border-slate-200 rounded-lg text-[10px] font-bold hover:bg-slate-50 whitespace-nowrap flex-1 sm:flex-none text-center uppercase tracking-widest">← Prev</button>
+            <button onClick={() => shiftDate(-1)} className="px-2 py-1.5 border border-slate-200 rounded-lg text-[10px] font-bold hover:bg-slate-50 whitespace-nowrap flex-1 sm:flex-none text-center uppercase tracking-widest transition-colors">← Prev</button>
             <div className="relative flex-1 sm:flex-none min-w-[120px] text-center font-bold text-slate-800 text-sm py-1.5">{dateStr}</div>
-            <button onClick={() => shiftDate(1)} className="px-2 py-1.5 border border-slate-200 rounded-lg text-[10px] font-bold hover:bg-slate-50 whitespace-nowrap flex-1 sm:flex-none text-center uppercase tracking-widest">Next →</button>
-            <button onClick={() => resetToToday()} className="px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 whitespace-nowrap flex-1 sm:flex-none text-center text-emerald-600">Today</button>
+            <button onClick={() => shiftDate(1)} className="px-2 py-1.5 border border-slate-200 rounded-lg text-[10px] font-bold hover:bg-slate-50 whitespace-nowrap flex-1 sm:flex-none text-center uppercase tracking-widest transition-colors">Next →</button>
+            <button onClick={() => resetToToday()} className="px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 whitespace-nowrap flex-1 sm:flex-none text-center text-emerald-600 transition-colors">Today</button>
           </div>
         </div>
         
@@ -256,17 +248,16 @@ export function Dashboard() {
               <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
             <div className="flex items-center gap-1.5">
-              <button onClick={cycleSort} className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 text-slate-700 bg-white min-w-[80px]">
+              <button onClick={cycleSort} className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 text-slate-700 bg-white min-w-[80px] transition-colors">
                 <ArrowUpDown size={14} /> {sortOption === 'alpha-asc' ? 'A-Z' : 'Z-A'}
               </button>
-              <button onClick={() => setIsOrderLocked(!isOrderLocked)} className={`shrink-0 p-1.5 border border-slate-200 rounded-lg transition-colors ${isOrderLocked ? 'bg-slate-800 text-white' : 'bg-white text-slate-600'}`}>
+              <button onClick={() => setIsOrderLocked(!isOrderLocked)} className={`shrink-0 p-1.5 border border-slate-200 rounded-lg transition-colors ${isOrderLocked ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
                 {isOrderLocked ? <Lock size={14} /> : <Unlock size={14} />}
               </button>
             </div>
         </div>
       </div>
 
-      {/* Exact V2 Category Pills */}
       <div className="flex overflow-x-auto scrollbar-hide bg-slate-200 p-1 rounded-xl gap-0.5 sm:gap-1">
         {['ALL', 'OWLS', 'RAPTORS', 'MAMMALS', 'EXOTICS'].map(cat => (
           <button
@@ -280,7 +271,6 @@ export function Dashboard() {
         <button onClick={() => setActiveTab('ARCHIVED')} className={`shrink-0 sm:flex-1 min-w-[80px] sm:min-w-[100px] py-2 px-3 sm:px-4 text-[11px] sm:text-xs font-black uppercase tracking-widest rounded-lg transition-colors whitespace-nowrap ${activeTab === 'ARCHIVED' ? 'bg-rose-100 text-rose-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archived</button>
       </div>
 
-      {/* Exact V2 RC6 Table Layout (Read-Only) */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -297,7 +287,7 @@ export function Dashboard() {
               <tr 
                 key={animal.id} 
                 onClick={() => navigate({ to: '/animals/$animalId', params: { animalId: animal.id } })}
-                className="group transition-colors hover:bg-slate-50/80 cursor-pointer"
+                className="group hover:bg-slate-50/80 cursor-pointer" // V3 PERFORMANCE: Removed 'transition-colors' on high-volume table rows
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
