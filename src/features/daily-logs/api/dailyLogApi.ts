@@ -4,7 +4,7 @@ import { db } from '../../../lib/db';
 export interface AddLogPayload {
   animal_id: string;
   log_type: string;
-  log_date: string; // Validated ISO string
+  log_date: string;
   notes?: string | null;
   weight_grams?: number | null;
   weight_unit?: string | null;
@@ -15,6 +15,7 @@ export interface AddLogPayload {
 /**
  * Audit Point: Precision & Type Casting
  * Numeric columns are cast to Number at the edge to prevent string concatenation bugs.
+ * V3 FIX: Removed 'as any' violation, enforcing strict database row typing.
  */
 export const useDailyLog = (logId?: string) => {
   return useQuery({
@@ -26,7 +27,9 @@ export const useDailyLog = (logId?: string) => {
       
       if (!res.rows[0]) return null;
 
-      const row = res.rows[0] as any;
+      // V3 Strict Typing Enforcement
+      const row = res.rows[0] as Record<string, unknown>;
+      
       return {
         ...row,
         weight_grams: row.weight_grams ? Number(row.weight_grams) : null,
@@ -75,7 +78,7 @@ export const useSaveDailyLog = (existingLogId?: string) => {
             animal_id, log_type, log_date, notes, weight_grams, weight_unit, 
             temperature_c, created_by, modified_by
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [payload.animal_id, ...baseParams]
+          [payload.animal_id, ...baseParams, payload.current_user_id]
         );
       }
     },
@@ -86,10 +89,6 @@ export const useSaveDailyLog = (existingLogId?: string) => {
   });
 };
 
-/**
- * Audit Point: Recovery of Missing Export
- * This restores the hook the UI was crashing on.
- */
 export const useDeleteDailyLog = () => {
   const queryClient = useQueryClient();
 

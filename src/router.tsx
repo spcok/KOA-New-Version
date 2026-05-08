@@ -18,12 +18,15 @@ import { Route as incidentsRoute } from './routes/incidents';
 import { Route as safetyIncidentsRoute } from './routes/safety-incidents';
 import { Route as fireDrillsRoute } from './routes/fire-drills';
 
-// Medical (New)
+// Medical
 import { Route as medicalIndexRoute } from './routes/medical/index';
 import { Route as medicalIsolationRoute } from './routes/medical/isolation';
 import { Route as medicalScheduleRoute } from './routes/medical/schedule';
 import { Route as medicalMedicationsRoute } from './routes/medical/medications';
 import { Route as medicalRecordsRoute } from './routes/medical/records';
+
+// Timesheets (New)
+import { Route as timesheetsRoute } from './routes/timesheets';
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -53,7 +56,8 @@ const routeTree = rootRoute.addChildren([
   medicalIsolationRoute,
   medicalScheduleRoute,
   medicalMedicationsRoute,
-  medicalRecordsRoute
+  medicalRecordsRoute,
+  timesheetsRoute
 ]);
 
 export const router = createRouter({

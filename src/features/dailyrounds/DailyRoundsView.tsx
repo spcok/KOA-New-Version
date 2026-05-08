@@ -5,13 +5,20 @@ import { useAuthStore } from '../../store/authStore';
 import { 
     ClipboardCheck, Sun, Moon, Check, X, Droplets, Lock, 
     Heart, Loader2, Calendar as CalendarIcon,
-    Info, ChevronDown, ChevronRight, CornerDownRight, ChevronLeft,
-    ShieldCheck
+    Info, ChevronLeft, ChevronRight, ShieldCheck
 } from 'lucide-react';
 
 const CATEGORIES = ['All', 'OWLS', 'RAPTORS', 'MAMMALS', 'EXOTICS'];
 
-// Strict types for the UI state
+// V3 FIX: Strict interfaces
+type Animal = {
+    id: string;
+    name: string;
+    species: string;
+    category: string;
+    entity_type: string;
+};
+
 type RoundCheck = {
   id?: string;
   is_alive: boolean | null;
@@ -27,18 +34,13 @@ export function DailyRoundsView() {
     const [viewDate, setViewDate] = useState(new Date().toISOString().split('T')[0]);
     const [roundType, setRoundType] = useState('Morning');
     const [activeTab, setActiveTab] = useState(CATEGORIES[0]);
-    const [expandedMobs, setExpandedMobs] = useState<Set<string>>(new Set());
     
     const [signingInitials, setSigningInitials] = useState('');
-    const [generalNotes, setGeneralNotes] = useState('');
-    
-    // Modal State
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [reportType, setReportType] = useState<'HEALTH' | 'SECURITY'>('HEALTH');
     const [reportAnimalId, setReportAnimalId] = useState<string | null>(null);
     const [issueText, setIssueText] = useState('');
 
-    // Audit Fix F-09: SQL-Side Grouping & Sorting
     const { data, isLoading } = useQuery({
         queryKey: ['daily_rounds', viewDate, roundType, activeTab],
         queryFn: async () => {
@@ -51,7 +53,6 @@ export function DailyRoundsView() {
                 animalQuery += ` AND category = $1`;
                 params.push(activeTab);
             }
-            // Sort parents first, then alphabetical. Eliminates complex JS Maps.
             animalQuery += " ORDER BY entity_type DESC, name ASC";
 
             const animalRes = await db.query(animalQuery, params);
@@ -64,7 +65,8 @@ export function DailyRoundsView() {
             const checksMap: Record<string, RoundCheck> = {};
             roundRes.rows.forEach((r: any) => { checksMap[r.animal_id] = r; });
             
-            return { animals: animalRes.rows as any[], checks: checksMap };
+            // V3 FIX: Strict Array Casting
+            return { animals: animalRes.rows as Animal[], checks: checksMap };
         }
     });
 
@@ -80,13 +82,11 @@ export function DailyRoundsView() {
     const progress = totalAnimals === 0 ? 0 : Math.round((completedChecks / totalAnimals) * 100);
     const isComplete = totalAnimals > 0 && progress === 100;
 
-    // Enterprise Fix: Safe Parameterized Mutation with Optimistic Updates
     const toggleMutation = useMutation({
         mutationFn: async ({ animalId, field, value, note }: { animalId: string, field: 'is_alive' | 'water_checked' | 'locks_secured', value: boolean, note?: string }) => {
             await db.waitReady;
             const existing = checks[animalId];
             
-            // Hardcoded columns prevent SQL injection
             if (existing && existing.id) {
                 const query = field === 'is_alive' 
                     ? `UPDATE daily_rounds SET is_alive = $1, animal_issue_note = $2, updated_at = now(), modified_by = $3 WHERE id = $4`
@@ -105,7 +105,6 @@ export function DailyRoundsView() {
                 await db.query(query, [animalId, viewDate, roundType, value, note || null, currentUserId]);
             }
         },
-        // Optimistic Update for zero-latency UI tapping
         onMutate: async ({ animalId, field, value }) => {
             await queryClient.cancelQueries({ queryKey: ['daily_rounds', viewDate, roundType, activeTab] });
             const previousData = queryClient.getQueryData(['daily_rounds', viewDate, roundType, activeTab]);
@@ -113,27 +112,19 @@ export function DailyRoundsView() {
             queryClient.setQueryData(['daily_rounds', viewDate, roundType, activeTab], (old: any) => {
                 if (!old) return old;
                 const newChecks = { ...old.checks };
-                if (!newChecks[animalId]) {
-                    newChecks[animalId] = { is_alive: null, water_checked: null, locks_secured: null };
-                }
+                if (!newChecks[animalId]) newChecks[animalId] = { is_alive: null, water_checked: null, locks_secured: null };
                 newChecks[animalId][field] = value;
                 return { ...old, checks: newChecks };
             });
             return { previousData };
         },
         onError: (err, variables, context) => {
-            if (context?.previousData) {
-                queryClient.setQueryData(['daily_rounds', viewDate, roundType, activeTab], context.previousData);
-            }
+            if (context?.previousData) queryClient.setQueryData(['daily_rounds', viewDate, roundType, activeTab], context.previousData);
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['daily_rounds'] });
-        }
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ['daily_rounds'] })
     });
 
-    const handleAction = (animalId: string, field: 'is_alive' | 'water_checked' | 'locks_secured', value: boolean, note?: string) => {
-        toggleMutation.mutate({ animalId, field, value, note });
-    };
+    const handleAction = (animalId: string, field: 'is_alive' | 'water_checked' | 'locks_secured', value: boolean, note?: string) => toggleMutation.mutate({ animalId, field, value, note });
 
     const confirmIssue = () => {
         if (!reportAnimalId || !issueText) return;
@@ -152,7 +143,6 @@ export function DailyRoundsView() {
     return (
         <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50 relative">
             <div className="flex-1 overflow-y-auto space-y-6 pb-24">
-                {/* Header Controls */}
                 <div className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-6 shadow-sm sticky top-0 z-20">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
@@ -181,7 +171,6 @@ export function DailyRoundsView() {
                     </div>
                 </div>
 
-                {/* Animal List */}
                 <div className="px-4 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-3">
                     {isLoading ? (
                         <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-emerald-500" /></div>
@@ -219,7 +208,6 @@ export function DailyRoundsView() {
                 </div>
             </div>
 
-            {/* Sticky Footer */}
             <div className="bg-white border-t border-slate-200 p-4 fixed bottom-0 left-0 right-0 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] md:pl-64 transition-all">
                 <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row gap-4 md:items-center">
                     <div className="w-full md:w-1/3">
@@ -240,7 +228,6 @@ export function DailyRoundsView() {
                 </div>
             </div>
 
-            {/* Issue Modal */}
             {reportModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
