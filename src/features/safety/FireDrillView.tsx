@@ -5,12 +5,9 @@ import { useAuthStore } from '../../store/authStore';
 import { useForm } from '@tanstack/react-form';
 import { zodValidator } from '@tanstack/zod-form-adapter';
 import { z } from 'zod';
-import { Loader2, Plus, X, Save, Flame, Edit2, Trash2, Timer, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, X, Flame, Edit2, Trash2, Timer, CheckCircle, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// ==========================================
-// 1. STRICT TYPE LAW
-// ==========================================
 interface FireDrillLog {
   id: string;
   drill_date: string;
@@ -30,9 +27,6 @@ interface UserOption {
   name: string;
 }
 
-// ==========================================
-// 2. STRICT ZOD LAW & NULL LAW
-// ==========================================
 const drillSchema = z.object({
   drill_date: z.string().min(1, "Date required"),
   drill_type: z.enum(['PLANNED', 'UNPLANNED', 'FALSE_ALARM']),
@@ -47,9 +41,6 @@ const drillSchema = z.object({
 
 type DrillFormValues = z.infer<typeof drillSchema>;
 
-// ==========================================
-// 3. THE MODAL (Fresh Build)
-// ==========================================
 function DrillModal({ isOpen, onClose, users, editDrill }: { isOpen: boolean, onClose: () => void, users: UserOption[], editDrill: FireDrillLog | null }) {
   const queryClient = useQueryClient();
   const session = useAuthStore(s => s.session);
@@ -200,8 +191,8 @@ function DrillModal({ isOpen, onClose, users, editDrill }: { isOpen: boolean, on
               <form.Field name="status">
                 {field => (
                   <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase">Status</label>
-                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'PASS' | 'REQUIRES_ACTION' | 'RESOLVED')} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-rose-500">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase">Drill Status</label>
+                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'PASS' | 'REQUIRES_ACTION' | 'RESOLVED')} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50">
                       <option value="PASS">Pass</option>
                       <option value="REQUIRES_ACTION">Requires Action</option>
                       <option value="RESOLVED">Issues Resolved</option>
@@ -213,22 +204,21 @@ function DrillModal({ isOpen, onClose, users, editDrill }: { isOpen: boolean, on
                 {field => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase">Conducted By</label>
-                    <select value={field.state.value || ''} onChange={e => field.handleChange(e.target.value === '' ? null : e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-rose-500">
-                      <option value="">-- Select Staff --</option>
+                    <select value={field.state.value || ''} onChange={e => field.handleChange(e.target.value === '' ? null : e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50">
+                      <option value="">Select...</option>
                       {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                   </div>
                 )}
               </form.Field>
             </div>
-
           </form>
         </div>
 
-        <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="px-6 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold uppercase text-xs tracking-wider transition-colors">Cancel</button>
-          <button form="drill-form" type="submit" disabled={saveMutation.isPending} className="px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold uppercase text-xs tracking-wider transition-colors flex items-center gap-2">
-            {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Drill Record
+        <div className="p-6 border-t flex justify-end gap-3 shrink-0">
+          <button type="button" onClick={onClose} className="px-6 py-2.5 border rounded-xl text-xs font-bold uppercase hover:bg-slate-50 transition-colors">Cancel</button>
+          <button form="drill-form" type="submit" disabled={saveMutation.isPending} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase hover:bg-slate-800 transition-colors flex items-center gap-2">
+            {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : null} Save Drill
           </button>
         </div>
       </div>
@@ -236,9 +226,6 @@ function DrillModal({ isOpen, onClose, users, editDrill }: { isOpen: boolean, on
   );
 }
 
-// ==========================================
-// 4. MAIN VIEW (Fresh Build)
-// ==========================================
 export function FireDrillView() {
   const queryClient = useQueryClient();
   const session = useAuthStore(s => s.session);
@@ -304,7 +291,7 @@ export function FireDrillView() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Fire & Evacuations</h1>
           <p className="text-slate-500 font-bold text-sm mt-1">Log mandatory fire drills and false alarms.</p>
         </div>
-        <button onClick={() => { setDrillToEdit(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-rose-600 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-rose-700 transition-colors shadow-lg shadow-rose-600/20">
+        <button onClick={() => { setDrillToEdit(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-slate-800 transition-colors shadow-lg">
           <Plus size={18} /> Log Drill
         </button>
       </div>
@@ -312,7 +299,7 @@ export function FireDrillView() {
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto scrollbar-hide">
           {['ALL', 'PASS', 'REQUIRES_ACTION', 'RESOLVED'].map(f => (
-            <button key={f} onClick={() => setFilter(f as any)} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${filter === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
+            <button key={f} onClick={() => setFilter(f as 'PASS' | 'REQUIRES_ACTION' | 'RESOLVED' | 'ALL')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${filter === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
               {f.replace(/_/g, ' ')}
             </button>
           ))}
@@ -347,13 +334,13 @@ export function FireDrillView() {
                 </td>
                 <td className="px-4 py-3"><span className="text-xs font-bold text-slate-600">{d.areas_involved}</span></td>
                 <td className="px-4 py-3">
-                    <select value={d.status} onChange={(e) => updateStatus.mutate({ id: d.id, newStatus: e.target.value })} className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-rose-500 outline-none">
-                        <option value="PASS">Pass</option><option value="REQUIRES_ACTION">Requires Action</option><option value="RESOLVED">Resolved</option>
+                    <select value={d.status} onChange={(e) => updateStatus.mutate({ id: d.id, newStatus: e.target.value })} className="text-xs font-bold bg-slate-50 border rounded-lg px-2 py-1 focus:outline-none focus:border-rose-500">
+                        <option value="PASS">Pass</option><option value="REQUIRES_ACTION">Requires Action</option><option value="RESOLVED">Issues Resolved</option>
                     </select>
                 </td>
                 <td className="px-4 py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setDrillToEdit(d); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 bg-white shadow-sm border border-slate-200 rounded-md mx-1"><Edit2 size={14} /></button>
-                  <button onClick={() => { if(window.confirm('Delete this record?')) deleteDrill.mutate(d.id); }} className="p-1.5 text-slate-400 hover:text-rose-600 bg-white shadow-sm border border-slate-200 rounded-md"><Trash2 size={14} /></button>
+                  <button onClick={() => { setDrillToEdit(d); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600"><Edit2 size={16} /></button>
+                  <button onClick={() => { if(window.confirm('Delete this record?')) deleteDrill.mutate(d.id); }} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                 </td>
               </tr>
             ))}
@@ -364,7 +351,6 @@ export function FireDrillView() {
         </table>
       </div>
 
-      {/* 5. HYDRATION LAW (The key trick) */}
       {isModalOpen && (
         <DrillModal 
           key={drillToEdit ? drillToEdit.id : 'new-drill'} 

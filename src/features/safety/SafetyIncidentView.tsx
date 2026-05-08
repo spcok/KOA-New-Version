@@ -5,12 +5,9 @@ import { useAuthStore } from '../../store/authStore';
 import { useForm } from '@tanstack/react-form';
 import { zodValidator } from '@tanstack/zod-form-adapter';
 import { z } from 'zod';
-import { Loader2, Plus, X, Save, MapPin, AlertTriangle, Edit2, Trash2, Siren } from 'lucide-react';
+import { Loader2, Plus, X, Save, MapPin, AlertTriangle, Edit2, Trash2, Siren, User, HeartPulse, HardHat } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// ==========================================
-// 1. STRICT TYPE LAW
-// ==========================================
 interface SafetyIncident {
   id: string;
   incident_date: string;
@@ -33,9 +30,6 @@ interface AnimalOption {
   name: string;
 }
 
-// ==========================================
-// 2. STRICT ZOD LAW & NULL LAW (No 'NONE' strings)
-// ==========================================
 const safetySchema = z.object({
   incident_date: z.string().min(1, "Date required"),
   title: z.string().min(1, "Title required"),
@@ -53,9 +47,6 @@ const safetySchema = z.object({
 
 type SafetyFormValues = z.infer<typeof safetySchema>;
 
-// ==========================================
-// 3. THE MODAL (Fresh Build)
-// ==========================================
 function SafetyModal({ isOpen, onClose, animals, editIncident }: { isOpen: boolean, onClose: () => void, animals: AnimalOption[], editIncident: SafetyIncident | null }) {
   const queryClient = useQueryClient();
   const session = useAuthStore(s => s.session);
@@ -169,7 +160,7 @@ function SafetyModal({ isOpen, onClose, animals, editIncident }: { isOpen: boole
                 {field => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase">Category</label>
-                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50">
+                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'ANIMAL_ESCAPE' | 'FIRE' | 'NEAR_MISS' | 'SECURITY_BREACH' | 'INFRASTRUCTURE_FAILURE' | 'SEVERE_WEATHER' | 'OTHER')} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50">
                       <option value="NEAR_MISS">Near Miss</option><option value="ANIMAL_ESCAPE">Animal Escape</option>
                       <option value="FIRE">Fire / Smoke</option><option value="SECURITY_BREACH">Security Breach</option>
                       <option value="INFRASTRUCTURE_FAILURE">Infrastructure Failure</option>
@@ -182,7 +173,7 @@ function SafetyModal({ isOpen, onClose, animals, editIncident }: { isOpen: boole
                 {field => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase">Severity</label>
-                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50">
+                    <select value={field.state.value} onChange={e => field.handleChange(e.target.value as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW')} className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-slate-50">
                       <option value="LOW">Low</option><option value="MEDIUM">Medium</option>
                       <option value="HIGH">High</option><option value="CRITICAL">Critical</option>
                     </select>
@@ -273,9 +264,6 @@ function SafetyModal({ isOpen, onClose, animals, editIncident }: { isOpen: boole
   );
 }
 
-// ==========================================
-// 4. MAIN VIEW (Fresh Build)
-// ==========================================
 export function SafetyIncidentView() {
   const queryClient = useQueryClient();
   const session = useAuthStore(s => s.session);
@@ -344,7 +332,7 @@ export function SafetyIncidentView() {
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto scrollbar-hide">
           {['OPEN', 'UNDER_INVESTIGATION', 'RESOLVED', 'CLOSED', 'ALL'].map(f => (
-            <button key={f} onClick={() => setFilter(f as any)} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${filter === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
+            <button key={f} onClick={() => setFilter(f as 'OPEN' | 'UNDER_INVESTIGATION' | 'RESOLVED' | 'CLOSED' | 'ALL')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${filter === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
               {f.replace(/_/g, ' ')}
             </button>
           ))}
@@ -374,13 +362,13 @@ export function SafetyIncidentView() {
                 </td>
                 <td className="px-4 py-3"><span className="text-[9px] font-black uppercase bg-slate-100 text-slate-600 px-2 py-1 rounded-md">{i.incident_type.replace(/_/g, ' ')}</span></td>
                 <td className="px-4 py-3">
-                    <select value={i.status} onChange={(e) => updateStatus.mutate({ id: i.id, newStatus: e.target.value })} className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-orange-500 outline-none">
+                    <select value={i.status} onChange={(e) => updateStatus.mutate({ id: i.id, newStatus: e.target.value })} className="text-xs font-bold bg-slate-50 border rounded-lg px-2 py-1 focus:outline-none focus:border-orange-500">
                         <option value="OPEN">Open</option><option value="UNDER_INVESTIGATION">Investigating</option><option value="RESOLVED">Resolved</option><option value="CLOSED">Closed</option>
                     </select>
                 </td>
                 <td className="px-4 py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setIncidentToEdit(i); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 bg-white shadow-sm border border-slate-200 rounded-md mx-1"><Edit2 size={14} /></button>
-                  <button onClick={() => { if(window.confirm('Delete this record?')) deleteIncident.mutate(i.id); }} className="p-1.5 text-slate-400 hover:text-rose-600 bg-white shadow-sm border border-slate-200 rounded-md"><Trash2 size={14} /></button>
+                  <button onClick={() => { setIncidentToEdit(i); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600"><Edit2 size={16} /></button>
+                  <button onClick={() => { if(window.confirm('Delete this record?')) deleteIncident.mutate(i.id); }} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                 </td>
               </tr>
             ))}
@@ -391,7 +379,6 @@ export function SafetyIncidentView() {
         </table>
       </div>
 
-      {/* 5. HYDRATION LAW (The key trick) */}
       {isModalOpen && (
         <SafetyModal 
           key={incidentToEdit ? incidentToEdit.id : 'new-safety'} 

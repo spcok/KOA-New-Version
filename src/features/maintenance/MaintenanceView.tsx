@@ -114,7 +114,7 @@ function MaintenanceModal({ isOpen, onClose, users, editTicket }: { isOpen: bool
 
         <div className="p-6 overflow-y-auto flex-1 scrollbar-hide">
           <form id="ticket-form" onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }} className="space-y-4">
-            <form.Field name="title" validators={{ onChange: maintenanceSchema.shape.title }}>
+            <form.Field name="title">
               {field => (
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase">Issue Title</label>
@@ -152,7 +152,7 @@ function MaintenanceModal({ isOpen, onClose, users, editTicket }: { isOpen: bool
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <form.Field name="location" validators={{ onChange: maintenanceSchema.shape.location }}>
+              <form.Field name="location">
                 {field => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase">Location</label>
@@ -195,7 +195,7 @@ function MaintenanceModal({ isOpen, onClose, users, editTicket }: { isOpen: bool
 
         <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 shrink-0">
           <button type="button" onClick={onClose} className="px-6 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold uppercase text-xs tracking-wider transition-colors">Cancel</button>
-          <button form="ticket-form" type="submit" disabled={saveMutation.isPending} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase text-xs tracking-wider transition-colors flex items-center gap-2">
+          <button form="ticket-form" type="submit" disabled={saveMutation.isPending} className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold uppercase text-xs tracking-wider transition-colors flex items-center gap-2">
             {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Ticket
           </button>
         </div>
@@ -241,7 +241,7 @@ export function MaintenanceView() {
   });
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, newStatus }: { id: string, newStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' }) => {
+    mutationFn: async ({ id, newStatus }: { id: string, newStatus: string }) => {
       await db.waitReady;
       await db.query(`UPDATE maintenance_tickets SET status = $1, modified_by = $2, updated_at = now() WHERE id = $3`, [newStatus, currentUserId, id]);
     },
@@ -276,7 +276,7 @@ export function MaintenanceView() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Maintenance</h1>
           <p className="text-slate-500 font-bold text-sm mt-1">Report and track facility faults.</p>
         </div>
-        <button onClick={() => { setTicketToEdit(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20">
+        <button onClick={() => { setTicketToEdit(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-slate-800 transition-colors shadow-lg">
           <Plus size={18} /> Log Ticket
         </button>
       </div>
@@ -284,7 +284,7 @@ export function MaintenanceView() {
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto scrollbar-hide">
           {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'ALL'].map(f => (
-            <button key={f} onClick={() => setFilter(f as any)} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${filter === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
+            <button key={f} onClick={() => setFilter(f as 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'ALL')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors whitespace-nowrap ${filter === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
               {f.replace('_', ' ')}
             </button>
           ))}
@@ -315,7 +315,7 @@ export function MaintenanceView() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                    <select value={t.status} onChange={(e) => updateStatus.mutate({ id: t.id, newStatus: e.target.value as 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' })} className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <select value={t.status} onChange={(e) => updateStatus.mutate({ id: t.id, newStatus: e.target.value })} className="text-xs font-bold bg-slate-50 border rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500">
                         <option value="OPEN">Open</option>
                         <option value="IN_PROGRESS">In Progress</option>
                         <option value="RESOLVED">Resolved</option>
@@ -323,7 +323,7 @@ export function MaintenanceView() {
                 </td>
                 <td className="px-4 py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => { setTicketToEdit(t); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 bg-white shadow-sm border border-slate-200 rounded-md mx-1"><Edit2 size={14} /></button>
-                  <button onClick={() => { if(window.confirm('Delete Ticket permanently?')) deleteTicket.mutate(t.id); }} className="p-1.5 text-slate-400 hover:text-rose-600 bg-white shadow-sm border border-slate-200 rounded-md"><Trash2 size={14} /></button>
+                  <button onClick={() => { if(window.confirm('Delete Ticket permanently?')) deleteTicket.mutate(t.id); }} className="p-1.5 text-slate-400 hover:text-red-600 bg-white shadow-sm border border-slate-200 rounded-md"><Trash2 size={14} /></button>
                 </td>
               </tr>
             ))}
@@ -334,7 +334,6 @@ export function MaintenanceView() {
         </table>
       </div>
 
-      {/* HYDRATION LAW: Reset the component state on Edit switch */}
       {isModalOpen && (
         <MaintenanceModal 
           key={ticketToEdit ? ticketToEdit.id : 'new'} 

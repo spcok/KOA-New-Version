@@ -137,7 +137,7 @@ function IncidentModal({ isOpen, onClose, animals, editIncident }: { isOpen: boo
         <div className="p-6 overflow-y-auto flex-1 scrollbar-hide">
           <form id="incident-form" onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }} className="space-y-5">
             <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <form.Field name="incident_date" validators={{ onChange: incidentSchema.shape.incident_date }}>
+              <form.Field name="incident_date">
                 {field => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase">Date & Time</label>
@@ -145,7 +145,7 @@ function IncidentModal({ isOpen, onClose, animals, editIncident }: { isOpen: boo
                   </div>
                 )}
               </form.Field>
-              <form.Field name="location" validators={{ onChange: incidentSchema.shape.location }}>
+              <form.Field name="location">
                 {field => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase">Location</label>
@@ -156,7 +156,7 @@ function IncidentModal({ isOpen, onClose, animals, editIncident }: { isOpen: boo
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <form.Field name="person_involved_name" validators={{ onChange: incidentSchema.shape.person_involved_name }}>
+              <form.Field name="person_involved_name">
                 {field => (
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase">Person Involved</label>
@@ -316,7 +316,7 @@ export function IncidentView() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">First Aid Log</h1>
           <p className="text-slate-500 font-bold text-sm mt-1">Medical incidents involving staff or visitors.</p>
         </div>
-        <button onClick={() => { setIncidentToEdit(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-rose-600 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-rose-700 transition-colors shadow-lg shadow-rose-600/20">
+        <button onClick={() => { setIncidentToEdit(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-slate-800 transition-colors shadow-lg">
           <Plus size={18} /> Log Incident
         </button>
       </div>
@@ -355,7 +355,7 @@ export function IncidentView() {
                 </td>
                 <td className="px-4 py-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => { setIncidentToEdit(i); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 bg-white shadow-sm border border-slate-200 rounded-md mx-1"><Edit2 size={14} /></button>
-                  <button onClick={() => { if(window.confirm('Delete incident log permanently?')) deleteIncident.mutate(i.id); }} className="p-1.5 text-slate-400 hover:text-rose-600 bg-white shadow-sm border border-slate-200 rounded-md"><Trash2 size={14} /></button>
+                  <button onClick={() => { if(window.confirm('Delete incident log permanently?')) deleteIncident.mutate(i.id); }} className="p-1.5 text-slate-400 hover:text-red-600 bg-white shadow-sm border border-slate-200 rounded-md"><Trash2 size={14} /></button>
                 </td>
               </tr>
             ))}
@@ -366,7 +366,6 @@ export function IncidentView() {
         </table>
       </div>
 
-      {/* HYDRATION LAW ENFORCED */}
       {isModalOpen && (
         <IncidentModal 
           key={incidentToEdit ? incidentToEdit.id : 'new-incident'} 
