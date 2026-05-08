@@ -1,7 +1,7 @@
 import { createRootRoute, Outlet, useLocation, Link } from '@tanstack/react-router';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { db } from '../lib/db'; // V3 FIX: Import the db singleton, not initDb
+import { db } from '../lib/db';
 import { useSyncStore } from '../store/syncStore';
 import { useAuthStore } from '../store/authStore';
 import { ClockInOutButton } from '../features/timesheets/components/ClockInOutButton';
@@ -37,26 +37,27 @@ export const rootRoute = Route;
 function RootComponent() {
   const location = useLocation();
   
-  // Audit Point: Boot-Guard State
   const [isDbReady, setIsDbReady] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Zustand Law: Strict Selectors
   const session = useAuthStore(s => s.session);
   const signOut = useAuthStore(s => s.signOut);
   const pullFromCloud = useSyncStore(s => s.pullFromCloud);
   const startBackgroundWorker = useSyncStore(s => s.startBackgroundWorker);
 
-  // V3 FIX: Modern Bootloader using the Database Class
+  // V3 ARCHITECTURE: Await the DatabaseService Singleton
   useEffect(() => {
     async function boot() {
-      await db.waitReady; // Replaces initDb()
-      setIsDbReady(true);
+      try {
+        await db.waitReady;
+        setIsDbReady(true);
+      } catch (err) {
+        console.error("Critical DB Boot Failure:", err);
+      }
     }
     boot();
   }, []);
 
-  // Sync Engine
   useEffect(() => {
     if (session && isDbReady) {
       pullFromCloud().catch(console.error);
@@ -142,7 +143,6 @@ function RootComponent() {
           <div className="pt-4">
             {isSidebarOpen && <div className="px-6 pb-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase transition-opacity duration-300">Veterinary & Health</div>}
             <div className="px-3 space-y-1">
-              {/* V3 FIX: Aligned paths to match our new medical router definitions */}
               <ActiveLink to="/medical" label="Medical Dashboard" icon={<Activity size={20} />} />
               <ActiveLink to="/medical/records" label="Clinical Records" icon={<FileText size={20} />} />
               <ActiveLink to="/medical/medications" label="Medication Logs" icon={<Pill size={20} />} />

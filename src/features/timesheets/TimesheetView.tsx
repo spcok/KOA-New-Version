@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { db } from '../../lib/db';
-import { Loader2, Clock, CalendarDays, CheckCircle } from 'lucide-react';
+import { Loader2, Clock, CalendarDays, CheckCircle, Search } from 'lucide-react';
 
-// V3 STRICT TYPE
 interface TimesheetRow {
   id: string;
   user_id: string;
@@ -18,23 +17,21 @@ interface TimesheetRow {
 export function TimesheetView() {
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: timesheets = [], isLoading } = useQuery({
+  const { data: timesheets = [], isLoading, isError, error } = useQuery({
     queryKey: ['timesheets', dateFilter],
     queryFn: async () => {
       await db.waitReady;
       const res = await db.query(
         `SELECT t.*, u.name, u.email FROM timesheets t 
          LEFT JOIN users u ON t.user_id = u.id 
-         WHERE t.shift_date = $1 AND t.is_deleted = false 
+         WHERE t.shift_date::text LIKE $1 || '%' AND t.is_deleted = false 
          ORDER BY t.clock_in_time DESC`,
         [dateFilter]
       );
-      // V3 FIX: Strict Array Casting
       return res.rows as TimesheetRow[];
     }
   });
 
-  // V3 FIX: Typed arguments to prevent null math crashes
   const getDuration = (inTime: string, outTime: string | null, status: string) => {
     if (status === 'CLOCKED_IN' || !outTime) return "Active Shift";
     const diffMs = new Date(outTime).getTime() - new Date(inTime).getTime();
@@ -44,6 +41,7 @@ export function TimesheetView() {
   };
 
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-emerald-500" size={32}/></div>;
+  if (isError) return <div className="p-6 text-center text-rose-500 font-bold">Database Error: {error?.message}</div>;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -79,7 +77,7 @@ export function TimesheetView() {
             {timesheets.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3">
-                  <p className="font-bold text-sm text-slate-800 uppercase tracking-tight">{t.name || t.email || 'Unknown User'}</p>
+                  <p className="font-bold text-sm text-slate-800 uppercase tracking-tight">{t.name || t.email || 'Current User (System Default)'}</p>
                 </td>
                 <td className="px-4 py-3 text-sm font-mono font-bold text-slate-600">
                   {new Date(t.clock_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -92,7 +90,7 @@ export function TimesheetView() {
                 </td>
                 <td className="px-4 py-3">
                   {t.status === 'CLOCKED_IN' ? (
-                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md w-fit">
+                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md w-fit shadow-sm">
                       <Loader2 size={12} className="animate-spin" /> Active
                     </span>
                   ) : (
@@ -106,7 +104,7 @@ export function TimesheetView() {
             {timesheets.length === 0 && (
               <tr>
                 <td colSpan={5} className="py-16 text-center text-slate-400">
-                  <Clock className="mx-auto mb-3 opacity-20" size={32} />
+                  <Search className="mx-auto mb-3 opacity-20" size={32} />
                   <p className="font-bold text-xs uppercase tracking-widest">No timesheets found for this date.</p>
                 </td>
               </tr>

@@ -13,11 +13,6 @@ class DatabaseService {
     try {
       await this.pg.waitReady;
 
-      // =====================================================================
-      // V3 MASTER SCHEMA
-      // Null-Law applied. Supabase 'uid()' defaults explicitly stripped.
-      // =====================================================================
-
       await this.pg.exec(`
         CREATE TABLE IF NOT EXISTS animals (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
