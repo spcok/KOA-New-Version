@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { db } from '../../lib/db';
 import { Loader2, Stethoscope, Plus, Search } from 'lucide-react';
-import { AddClinicalRecordModal } from '../animals/components/AddClinicalRecordModal';
+// V3 FIX: Adjusted import path to point to the local medical components folder
+import { AddClinicalRecordModal } from './components/AddClinicalRecordModal';
 
 // V3 STRICT TYPE
 interface ClinicalRecordRow {

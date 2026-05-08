@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { db } from '../../lib/db';
 import { Loader2, CalendarClock, Plus, Search } from 'lucide-react';
-import { AddClinicalScheduleModal } from '../animals/components/AddClinicalScheduleModal';
+// V3 FIX: Adjusted import path to point to the local medical components folder
+import { AddClinicalScheduleModal } from './components/AddClinicalScheduleModal';
 
 // V3 STRICT TYPE
 interface ClinicalScheduleRow {

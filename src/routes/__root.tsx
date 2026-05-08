@@ -1,7 +1,7 @@
 import { createRootRoute, Outlet, useLocation, Link } from '@tanstack/react-router';
 import React, { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { initDb } from '../lib/db';
+import { db } from '../lib/db'; // V3 FIX: Import the db singleton, not initDb
 import { useSyncStore } from '../store/syncStore';
 import { useAuthStore } from '../store/authStore';
 import { ClockInOutButton } from '../features/timesheets/components/ClockInOutButton';
@@ -27,13 +27,6 @@ const NotFoundComponent = () => {
 export const Route = createRootRoute({
   beforeLoad: () => {
     // V3 PHASE 1: Auth Guard Disabled for Offline Dev
-    // Uncomment this in Phase 4 when Supabase is connected.
-    /*
-    const session = useAuthStore.getState().session;
-    if (!session && location.pathname !== '/login') {
-      throw redirect({ to: '/login' });
-    }
-    */
   },
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -54,16 +47,16 @@ function RootComponent() {
   const pullFromCloud = useSyncStore(s => s.pullFromCloud);
   const startBackgroundWorker = useSyncStore(s => s.startBackgroundWorker);
 
-  // Database Bootloader
+  // V3 FIX: Modern Bootloader using the Database Class
   useEffect(() => {
     async function boot() {
-      await initDb();
+      await db.waitReady; // Replaces initDb()
       setIsDbReady(true);
     }
     boot();
   }, []);
 
-  // Sync Engine (Stubbed for Phase 1)
+  // Sync Engine
   useEffect(() => {
     if (session && isDbReady) {
       pullFromCloud().catch(console.error);
@@ -71,7 +64,6 @@ function RootComponent() {
     }
   }, [session, isDbReady, pullFromCloud, startBackgroundWorker]);
 
-  // Boot-Guard Render: Protects TanStack Query from firing before PGlite is alive
   if (!isDbReady) {
     return (
       <div className="h-screen w-full bg-[#171f30] flex flex-col items-center justify-center text-emerald-400 font-mono z-50 fixed inset-0">
@@ -134,7 +126,6 @@ function RootComponent() {
             {isSidebarOpen && <div className="px-6 pb-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase transition-opacity duration-300">Collection</div>}
             <div className="px-3 space-y-1">
               <ActiveLink to="/" label="Dashboard" icon={Icons.dashboard} />
-              {/* Note: Animal Roster link successfully removed per instructions */}
             </div>
           </div>
 
@@ -151,11 +142,12 @@ function RootComponent() {
           <div className="pt-4">
             {isSidebarOpen && <div className="px-6 pb-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase transition-opacity duration-300">Veterinary & Health</div>}
             <div className="px-3 space-y-1">
-              <ActiveLink to="/medical-dashboard" label="Medical Dashboard" icon={<Activity size={20} />} />
-              <ActiveLink to="/clinical-records" label="Clinical Records" icon={<FileText size={20} />} />
-              <ActiveLink to="/medication-logs" label="Medication Logs" icon={<Pill size={20} />} />
-              <ActiveLink to="/isolations" label="Biosecurity & Isolations" icon={<ShieldAlert size={20} />} />
-              <ActiveLink to="/medical-schedule" label="Medical Schedule" icon={<CalendarClock size={20} />} />
+              {/* V3 FIX: Aligned paths to match our new medical router definitions */}
+              <ActiveLink to="/medical" label="Medical Dashboard" icon={<Activity size={20} />} />
+              <ActiveLink to="/medical/records" label="Clinical Records" icon={<FileText size={20} />} />
+              <ActiveLink to="/medical/medications" label="Medication Logs" icon={<Pill size={20} />} />
+              <ActiveLink to="/medical/isolation" label="Biosecurity & Isolations" icon={<ShieldAlert size={20} />} />
+              <ActiveLink to="/medical/schedule" label="Medical Schedule" icon={<CalendarClock size={20} />} />
             </div>
           </div>
 
@@ -173,14 +165,6 @@ function RootComponent() {
             {isSidebarOpen && <div className="px-6 pb-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase transition-opacity duration-300">Staff Management</div>}
             <div className="px-3 space-y-1">
               <ActiveLink to="/timesheets" label="Timesheets" icon={Icons.cog} />
-            </div>
-          </div>
-
-          <div>
-            {isSidebarOpen && <div className="px-6 pb-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase transition-opacity duration-300">Logistics</div>}
-            <div className="px-3 space-y-1">
-              <InactiveItem label="Movements" icon={Icons.logistics} />
-              <InactiveItem label="Flight Records" icon={Icons.logistics} />
             </div>
           </div>
         </nav>
