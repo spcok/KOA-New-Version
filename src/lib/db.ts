@@ -5,7 +5,6 @@ class DatabaseService {
   public waitReady: Promise<void>;
 
   constructor() {
-    // 1. Initialize the offline-first PGlite instance using IndexedDB for persistence
     this.pg = new PGlite('idb://koa-local-db');
     this.waitReady = this.initDb();
   }
@@ -15,9 +14,8 @@ class DatabaseService {
       await this.pg.waitReady;
 
       // =====================================================================
-      // 2. THE MASTER V3 SCHEMA
-      // Parsed strictly from v3-database schema.csv
-      // Null-Law applied to ensure Keepers can save draft records safely.
+      // V3 MASTER SCHEMA
+      // Null-Law applied. Supabase 'uid()' defaults explicitly stripped.
       // =====================================================================
 
       await this.pg.exec(`
@@ -281,8 +279,8 @@ class DatabaseService {
           description text,
           category text,
           is_deleted boolean NOT NULL DEFAULT false,
-          created_by uuid DEFAULT uid(),
-          modified_by uuid DEFAULT uid(),
+          created_by uuid,
+          modified_by uuid,
           created_at timestamp with time zone NOT NULL DEFAULT now(),
           updated_at timestamp with time zone NOT NULL DEFAULT now()
         );
@@ -303,16 +301,16 @@ class DatabaseService {
           description text,
           immediate_action_taken text,
           animal_involved boolean NOT NULL DEFAULT false,
-          linked_animal_id uuid DEFAULT uid(),
+          linked_animal_id uuid,
           first_aid_required boolean NOT NULL DEFAULT false,
           root_cause text,
           preventative_action text,
           status text NOT NULL,
-          reported_by uuid DEFAULT uid(),
-          assigned_to uuid DEFAULT uid(),
+          reported_by uuid,
+          assigned_to uuid,
           is_deleted boolean NOT NULL DEFAULT false,
-          created_by uuid DEFAULT uid(),
-          modified_by uuid DEFAULT uid(),
+          created_by uuid,
+          modified_by uuid,
           created_at timestamp with time zone NOT NULL DEFAULT now(),
           updated_at timestamp with time zone NOT NULL DEFAULT now()
         );
@@ -328,8 +326,8 @@ class DatabaseService {
           completed_at timestamp with time zone,
           completed_by uuid,
           is_deleted boolean NOT NULL DEFAULT false,
-          created_by uuid DEFAULT uid(),
-          modified_by uuid DEFAULT uid(),
+          created_by uuid,
+          modified_by uuid,
           created_at timestamp with time zone DEFAULT now(),
           updated_at timestamp with time zone DEFAULT now()
         );
@@ -343,8 +341,8 @@ class DatabaseService {
           status text NOT NULL,
           notes text,
           is_deleted boolean NOT NULL DEFAULT false,
-          created_by uuid DEFAULT uid(),
-          modified_by uuid DEFAULT uid(),
+          created_by uuid,
+          modified_by uuid,
           created_at timestamp with time zone NOT NULL DEFAULT now(),
           updated_at timestamp with time zone NOT NULL DEFAULT now()
         );
@@ -367,7 +365,6 @@ class DatabaseService {
     }
   }
 
-  // 3. Centralized Database Access Wrapper
   async query(text: string, params?: any[]) {
     await this.waitReady;
     return this.pg.query(text, params);
