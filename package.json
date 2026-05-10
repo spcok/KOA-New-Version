@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@electric-sql/client": "^1.5.16",
     "@electric-sql/pglite": "^0.4.5",
     "@google/genai": "^1.52.0",
     "@google/generative-ai": "^0.24.1",

@@ -5,7 +5,10 @@ import { db } from '../lib/db';
 import { useSyncStore } from '../store/syncStore';
 import { useAuthStore } from '../store/authStore';
 import { ClockInOutButton } from '../features/timesheets/components/ClockInOutButton';
-import { Activity, FileText, Pill, ShieldAlert, CalendarClock, Wrench, HeartPulse, AlertTriangle, Flame, Loader2, ShieldCheck } from 'lucide-react';
+import { 
+  Activity, FileText, Pill, ShieldAlert, CalendarClock, Wrench, 
+  HeartPulse, AlertTriangle, Flame, Loader2, ShieldCheck, Wifi, WifiOff, RefreshCw
+} from 'lucide-react';
 
 const NotFoundComponent = () => {
   return (
@@ -40,10 +43,12 @@ function RootComponent() {
   const [isDbReady, setIsDbReady] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // ZUSTAND LAW: Strict selectors
   const session = useAuthStore(s => s.session);
   const signOut = useAuthStore(s => s.signOut);
   const pullFromCloud = useSyncStore(s => s.pullFromCloud);
   const startBackgroundWorker = useSyncStore(s => s.startBackgroundWorker);
+  const syncStatus = useSyncStore(s => s.status);
 
   // V3 ARCHITECTURE: Await the DatabaseService Singleton
   useEffect(() => {
@@ -58,9 +63,11 @@ function RootComponent() {
     boot();
   }, []);
 
+  // START THE SYNC ENGINE
   useEffect(() => {
-    if (session && isDbReady) {
-      pullFromCloud().catch(console.error);
+    if (session?.access_token && isDbReady) {
+      // Must pass the token so Electric can authenticate against Supabase RLS
+      pullFromCloud(session.access_token).catch(console.error);
       startBackgroundWorker();
     }
   }, [session, isDbReady, pullFromCloud, startBackgroundWorker]);
@@ -94,20 +101,9 @@ function RootComponent() {
     </Link>
   );
 
-  const InactiveItem = ({ icon, label }: { icon: React.ReactNode; label: string }) => (
-    <div 
-      className={`flex items-center gap-3 px-3 py-2 text-slate-500 hover:text-slate-300 hover:bg-slate-800/30 rounded cursor-not-allowed transition-all duration-200 ${isSidebarOpen ? '' : 'justify-center'}`} 
-      title={!isSidebarOpen ? `${label} (Coming Soon)` : undefined}
-    >
-      <div className="shrink-0 opacity-50">{icon}</div>
-      {isSidebarOpen && <span className="text-sm truncate">{label}</span>}
-    </div>
-  );
-
   const Icons = {
     dashboard: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>,
     logs: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>,
-    logistics: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>,
     cog: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>,
     admin: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>,
     logout: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
@@ -181,11 +177,20 @@ function RootComponent() {
 
       <main className="flex-1 flex flex-col bg-slate-50 text-slate-900 border-l border-slate-300 relative min-w-0">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 relative z-10 shadow-sm">
-          <div className="flex items-center">
+          <div className="flex items-center gap-6">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
               <svg className={`w-5 h-5 transition-transform duration-300 ${isSidebarOpen ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
             </button>
+            
+            {/* REAL-TIME SYNC STATUS INDICATOR */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold shadow-inner">
+              {syncStatus === 'connected' && <><Wifi size={14} className="text-emerald-500" /> <span className="text-emerald-700">Live Sync</span></>}
+              {syncStatus === 'connecting' && <><RefreshCw size={14} className="text-amber-500 animate-spin" /> <span className="text-amber-700">Connecting...</span></>}
+              {syncStatus === 'disconnected' && <><WifiOff size={14} className="text-slate-400" /> <span className="text-slate-500">Offline Vault</span></>}
+              {syncStatus === 'error' && <><AlertTriangle size={14} className="text-rose-500" /> <span className="text-rose-700">Sync Error</span></>}
+            </div>
           </div>
+          
           <div className="flex items-center gap-4">
             <ClockInOutButton />
             <div className="h-6 w-px bg-slate-200"></div>
