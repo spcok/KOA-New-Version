@@ -1,81 +1,128 @@
 import { create } from 'zustand';
 import { db } from '../lib/db';
-import { ShapeStream } from '@electric-sql/client';
+import { supabase } from '../lib/supabase';
 
-// Your live, secure Zrok tunnel
-const ELECTRIC_URL = 'https://9hv10jlrku6y.share.zrok.io';
+/**
+ * MASTER SCHEMA CONFIGURATION
+ * We handle strict NOT NULL constraints by defining safe clinical defaults.
+ */
+const SCHEMA_CONFIG = [
+  { 
+    name: 'animals', 
+    cols: ['id', 'entity_type', 'name', 'species', 'category', 'census_count', 'weight_unit', 'red_list_status', 'is_deleted'], 
+    defaults: { 
+      entity_type: 'ANIMAL', 
+      census_count: 0, 
+      weight_unit: 'g', 
+      red_list_status: 'NE',
+      is_deleted: false 
+    } 
+  },
+  { 
+    name: 'clinical_records', 
+    cols: ['id', 'animal_id', 'record_type', 'record_date', 'soap_assessment', 'is_deleted'], 
+    defaults: { record_type: 'GENERAL', is_deleted: false } 
+  },
+  { 
+    name: 'tasks', 
+    cols: ['id', 'title', 'status', 'is_deleted'], 
+    defaults: { status: 'PENDING', is_deleted: false } 
+  },
+  { 
+    name: 'users', 
+    cols: ['id', 'email', 'name', 'role', 'is_deleted'], 
+    defaults: { role: 'KEEPER', is_deleted: false } 
+  }
+];
 
 type SyncState = {
   status: 'disconnected' | 'connecting' | 'connected' | 'error';
   lastSynced: string | null;
-  pullFromCloud: (token?: string) => Promise<void>;
-  startBackgroundWorker: () => void;
-  setStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'error') => void;
+  progress: string;
+  pullFromCloud: () => Promise<void>;
+  startBackgroundWorker: () => void; // Fixed: Added back to Type
 };
 
 export const useSyncStore = create<SyncState>((set, get) => ({
   status: 'disconnected',
   lastSynced: null,
+  progress: 'Idle',
 
-  setStatus: (status) => set({ status }),
-
-  pullFromCloud: async (token?: string) => {
-    // Prevent multiple streams from opening
-    if (get().status === 'connected' || get().status === 'connecting') return;
-    
-    set({ status: 'connecting' });
-    console.log('[Sync Engine] Establishing secure link to Electric sync server...');
+  pullFromCloud: async () => {
+    if (get().status === 'connecting') return;
+    set({ status: 'connecting', progress: 'Initializing Master Sync...' });
 
     try {
-      // 1. Establish the Shape Stream for the animals table
-      const animalStream = new ShapeStream({
-        url: `${ELECTRIC_URL}/v1/shape/animals`,
-        // Pass the cached JWT token to respect Supabase RLS
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
+      await db.waitReady;
 
-      // 2. Listen to the stream and update local PGlite
-      animalStream.subscribe(async (messages) => {
-        await db.waitReady;
+      for (const table of SCHEMA_CONFIG) {
+        set({ progress: `Syncing ${table.name}...` });
         
-        for (const msg of messages) {
-          if (msg.headers.operation === 'insert' || msg.headers.operation === 'update') {
-            const data = msg.value;
-            // Upsert the data into the local vault
-            await db.query(
-              `INSERT INTO animals (id, name, species, category, is_deleted) 
-               VALUES ($1, $2, $3, $4, $5) 
-               ON CONFLICT (id) DO UPDATE SET 
-                 name = EXCLUDED.name, 
-                 species = EXCLUDED.species, 
-                 category = EXCLUDED.category, 
-                 is_deleted = EXCLUDED.is_deleted`,
-              [data.id, data.name, data.species, data.category, data.is_deleted]
-            );
-          } else if (msg.headers.operation === 'delete') {
-             await db.query(`DELETE FROM animals WHERE id = $1`, [msg.value.id]);
+        const { data, error } = await supabase
+          .from(table.name)
+          .select(table.cols.join(','));
+
+        if (error) {
+          console.warn(`[Sync Engine] ${table.name} fetch warning:`, error.message);
+          continue; 
+        }
+
+        if (data && data.length > 0) {
+          await db.query('BEGIN');
+          try {
+            for (const row of data) {
+              const columns = table.cols;
+              const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+              const updateSet = columns
+                .filter(c => c !== 'id')
+                .map((c) => `${c} = EXCLUDED.${c}`)
+                .join(', ');
+
+              const values = columns.map(col => {
+                const val = row[col];
+                // CRITICAL FIX: Inject defaults for NOT NULL violations
+                if (val === null || val === undefined) {
+                  return table.defaults[col as keyof typeof table.defaults] ?? null;
+                }
+                return val;
+              });
+
+              const sql = `
+                INSERT INTO ${table.name} (${columns.join(', ')})
+                VALUES (${placeholders})
+                ON CONFLICT (id) DO UPDATE SET ${updateSet}
+              `;
+
+              await db.query(sql, values);
+            }
+            await db.query('COMMIT');
+          } catch (e) {
+            await db.query('ROLLBACK');
+            throw e;
           }
         }
-        
-        // Mark as connected once the initial burst of data finishes
-        if (get().status !== 'connected') {
-           set({ status: 'connected', lastSynced: new Date().toISOString() });
-           console.log('[Sync Engine] Cloud vault is mirrored locally. Sync Active.');
-        }
+      }
+
+      set({ 
+        status: 'connected', 
+        lastSynced: new Date().toISOString(),
+        progress: 'Vault Synchronized' 
       });
+      console.log('[Sync Engine] Master Synchronisation Complete.');
 
     } catch (err) {
-      console.error('[Sync Engine] Failed to connect to cloud vault:', err);
-      set({ status: 'error' });
+      console.error('[Sync Engine] Master Sync failed:', err);
+      set({ status: 'error', progress: 'Sync Failed' });
     }
   },
 
+  // FIXED: Implementation added back to prevent "not a function" error
   startBackgroundWorker: () => {
-    console.log('[Sync Engine] Background outbox worker initialized.');
+    console.log('[Sync Engine] Background heartbeat initialized.');
     setInterval(() => {
-      if (get().status === 'connected') {
-        set({ lastSynced: new Date().toISOString() });
+      if (get().status !== 'connecting') {
+        get().pullFromCloud();
       }
-    }, 60000);
+    }, 300000); // Sync every 5 minutes
   }
 }));
